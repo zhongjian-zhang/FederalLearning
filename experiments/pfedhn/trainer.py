@@ -64,7 +64,6 @@ def train(data_name: str, data_path: str, classes_per_node: int, num_nodes: int,
           embed_lr: float, wd: float, inner_wd: float, embed_dim: int, hyper_hid: int,
           n_hidden: int, n_kernels: int, bs: int, device, eval_every: int, save_path: Path,
           seed: int) -> None:
-
     ###############################
     # init nodes, hnet, local net #
     ###############################
@@ -77,8 +76,8 @@ def train(data_name: str, data_path: str, classes_per_node: int, num_nodes: int,
         embed_dim = int(1 + num_nodes / 4)
 
     if data_name == "cifar10":
-        hnet = CNNHyper(num_nodes, embed_dim, hidden_dim=hyper_hid, n_hidden=n_hidden, n_kernels=n_kernels)
-        net = CNNTarget(n_kernels=n_kernels)
+        hnet = CNNHyper(num_nodes, embed_dim, hidden_dim=hyper_hid, n_hidden=n_hidden, n_kernels=n_kernels)  # client
+        net = CNNTarget(n_kernels=n_kernels)  # server
     elif data_name == "cifar100":
         hnet = CNNHyper(num_nodes, embed_dim, hidden_dim=hyper_hid,
                         n_hidden=n_hidden, n_kernels=n_kernels, out_dim=100)
@@ -93,6 +92,7 @@ def train(data_name: str, data_path: str, classes_per_node: int, num_nodes: int,
     # init optimizer #
     ##################
     embed_lr = embed_lr if embed_lr is not None else lr
+    # define the clients optimizers and loss function
     optimizers = {
         'sgd': torch.optim.SGD(
             [
@@ -116,17 +116,20 @@ def train(data_name: str, data_path: str, classes_per_node: int, num_nodes: int,
     step_iter = trange(steps)
 
     results = defaultdict(list)
+    # train process
     for step in step_iter:
+        # define the client mode is training
         hnet.train()
 
-        # select client at random
+        # select a client at random
         node_id = random.choice(range(num_nodes))
 
         # produce & load local network weights
         weights = hnet(torch.tensor([node_id], dtype=torch.long).to(device))
+        # server module load the client parameters
         net.load_state_dict(weights)
 
-        # init inner optimizer
+        # init server optimizer
         inner_optim = torch.optim.SGD(
             net.parameters(), lr=inner_lr, momentum=.9, weight_decay=inner_wd
         )
@@ -181,13 +184,14 @@ def train(data_name: str, data_path: str, classes_per_node: int, num_nodes: int,
         optimizer.step()
 
         step_iter.set_description(
-            f"Step: {step+1}, Node ID: {node_id}, Loss: {prvs_loss:.4f},  Acc: {prvs_acc:.4f}"
+            f"Step: {step + 1}, Node ID: {node_id}, Loss: {prvs_loss:.4f},  Acc: {prvs_acc:.4f}"
         )
 
         if step % eval_every == 0:
             last_eval = step
-            step_results, avg_loss, avg_acc, all_acc = eval_model(nodes, num_nodes, hnet, net, criteria, device, split="test")
-            logging.info(f"\nStep: {step+1}, AVG Loss: {avg_loss:.4f},  AVG Acc: {avg_acc:.4f}")
+            step_results, avg_loss, avg_acc, all_acc = eval_model(nodes, num_nodes, hnet, net, criteria, device,
+                                                                  split="test")
+            logging.info(f"\nStep: {step + 1}, AVG Loss: {avg_loss:.4f},  AVG Acc: {avg_acc:.4f}")
 
             results['test_avg_loss'].append(avg_loss)
             results['test_avg_acc'].append(avg_acc)
@@ -212,7 +216,8 @@ def train(data_name: str, data_path: str, classes_per_node: int, num_nodes: int,
 
     if step != last_eval:
         _, val_avg_loss, val_avg_acc, _ = eval_model(nodes, num_nodes, hnet, net, criteria, device, split="val")
-        step_results, avg_loss, avg_acc, all_acc = eval_model(nodes, num_nodes, hnet, net, criteria, device, split="test")
+        step_results, avg_loss, avg_acc, all_acc = eval_model(nodes, num_nodes, hnet, net, criteria, device,
+                                                              split="test")
         logging.info(f"\nStep: {step + 1}, AVG Loss: {avg_loss:.4f},  AVG Acc: {avg_acc:.4f}")
 
         results['test_avg_loss'].append(avg_loss)

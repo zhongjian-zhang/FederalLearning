@@ -6,6 +6,9 @@ from torch.nn.utils import spectral_norm
 
 
 class CNNHyper(nn.Module):
+    """
+    Client Module
+    """
     def __init__(
             self, n_nodes, embedding_dim, in_channels=3, out_dim=10, n_kernels=16, hidden_dim=100,
             spec_norm=False, n_hidden=1):
@@ -24,7 +27,7 @@ class CNNHyper(nn.Module):
             layers.append(
                 spectral_norm(nn.Linear(hidden_dim, hidden_dim)) if spec_norm else nn.Linear(hidden_dim, hidden_dim),
             )
-
+        # define the mlp layer
         self.mlp = nn.Sequential(*layers)
 
         self.c1_weights = nn.Linear(hidden_dim, self.n_kernels * self.in_channels * 5 * 5)
@@ -70,6 +73,9 @@ class CNNHyper(nn.Module):
 
 
 class CNNTarget(nn.Module):
+    """
+    Server Module
+    """
     def __init__(self, in_channels=3, n_kernels=16, out_dim=10):
         super(CNNTarget, self).__init__()
 

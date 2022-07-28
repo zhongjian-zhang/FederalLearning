@@ -48,7 +48,7 @@ def get_datasets(data_name, dataroot, normalize=True, val_size=10000):
     )
 
     train_size = len(dataset) - val_size
-    train_set, val_set = torch.utils.data.random_split(dataset, [train_size, val_size])
+    train_set, val_set = torch.utils.data.random_split(dataset, [train_size, val_size])   # 切割数据集伟训练集与验证集
 
     return train_set, val_set, test_set
 
